@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![NVict Reader Logo](https://www.nvict.nl/images/nvict-logo.png)
+![NVict Reader Logo](https://www.nvict.nl/images/reader_logo.png)
 
 **Professionele PDF Reader voor Windows**
 
