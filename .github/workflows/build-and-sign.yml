@@ -1,0 +1,120 @@
+name: Build and Sign NVict Reader
+
+on:
+  push:
+    tags:
+      - 'v*'  # Triggers op version tags zoals v1.6, v1.7, etc.
+  workflow_dispatch:  # Maakt handmatige trigger mogelijk
+
+jobs:
+  build-and-sign:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+    
+    - name: Build executable with PyInstaller
+      run: |
+        pyinstaller --onefile --windowed `
+          --icon=favicon.ico `
+          --add-data "favicon.ico;." `
+          --add-data "PDF_File_icon.ico;." `
+          --name "NVict Reader" `
+          NVict_Reader.py
+    
+    - name: Decode certificate (als je een PFX certificaat hebt)
+      if: ${{ secrets.CERTIFICATE_BASE64 != '' }}
+      shell: pwsh
+      run: |
+        $certBytes = [Convert]::FromBase64String("${{ secrets.CERTIFICATE_BASE64 }}")
+        [IO.File]::WriteAllBytes("certificate.pfx", $certBytes)
+    
+    - name: Sign executable with SignTool
+      if: ${{ secrets.CERTIFICATE_BASE64 != '' }}
+      shell: pwsh
+      run: |
+        # Zoek SignTool.exe in Windows SDK
+        $signTool = Get-ChildItem -Path "C:\Program Files (x86)\Windows Kits\" -Recurse -Filter "signtool.exe" | 
+                    Select-Object -First 1 -ExpandProperty FullName
+        
+        if (-not $signTool) {
+          Write-Error "SignTool.exe niet gevonden!"
+          exit 1
+        }
+        
+        # Sign de executable
+        & $signTool sign /f certificate.pfx `
+          /p "${{ secrets.CERTIFICATE_PASSWORD }}" `
+          /tr http://timestamp.digicert.com `
+          /td SHA256 `
+          /fd SHA256 `
+          /d "NVict Reader" `
+          /du "https://www.nvict.nl" `
+          "dist\NVict Reader.exe"
+        
+        # Verifieer de signature
+        & $signTool verify /pa "dist\NVict Reader.exe"
+    
+    - name: Cleanup certificate
+      if: always()
+      shell: pwsh
+      run: |
+        if (Test-Path certificate.pfx) {
+          Remove-Item certificate.pfx -Force
+        }
+    
+    - name: Create release archive
+      shell: pwsh
+      run: |
+        $version = "${{ github.ref_name }}"
+        Compress-Archive -Path "dist\NVict Reader.exe" -DestinationPath "NVict_Reader_${version}.zip"
+    
+    - name: Upload artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: NVict-Reader-Signed
+        path: |
+          dist/NVict Reader.exe
+          NVict_Reader_*.zip
+        retention-days: 90
+    
+    - name: Create GitHub Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          dist/NVict Reader.exe
+          NVict_Reader_*.zip
+        body: |
+          ## NVict Reader ${{ github.ref_name }}
+          
+          ### Downloads
+          - `NVict Reader.exe` - Standalone executable (ondertekend)
+          - `NVict_Reader_${{ github.ref_name }}.zip` - ZIP archief
+          
+          ### Installatie
+          1. Download `NVict Reader.exe`
+          2. Voer het bestand uit
+          3. Windows SmartScreen: klik "Meer info" en "Toch uitvoeren"
+          
+          ### Wijzigingen
+          Zie [CHANGELOG.md](CHANGELOG.md) voor details.
+          
+          ---
+          **Website:** https://www.nvict.nl
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
