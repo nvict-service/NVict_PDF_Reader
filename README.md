@@ -6,7 +6,7 @@
 
 **Professionele PDF Reader voor Windows**
 
-[![Version](https://img.shields.io/badge/version-1.6-blue.svg)](https://github.com/nvict-service/nvict-reader/releases)
+[![Version](https://img.shields.io/badge/version-1.7.1-blue.svg)](https://github.com/nvict-service/nvict-reader/releases)
 [![License](https://img.shields.io/badge/license-Proprietary-red.svg)](LICENSE)
 [![Windows](https://img.shields.io/badge/platform-Windows-blue.svg)](https://www.microsoft.com/windows)
 
@@ -25,10 +25,11 @@ NVict Reader is een moderne, gebruiksvriendelijke PDF viewer ontwikkeld door NVi
 - **Zoekfunctionaliteit** - Geavanceerd zoeken in PDF's
 - **Bladwijzers** - Sla je favoriete pagina's op
 - **Aantekeningen** - Voeg notities toe aan PDF pagina's
-- **Afdrukken** - Uitgebreide afdrukopties
+- **Direct Printen** - Print direct naar elke printer via Windows GDI (USB, netwerk, virtueel)
 - **Standaard PDF Viewer** - Stel in als standaard PDF programma
-- **Automatische Updates** - Blijf altijd up-to-date
+- **Automatische Updates** - Blijf altijd up-to-date met scrollbare release notes
 - **Single Instance** - Nieuw geopende bestanden worden automatisch in bestaand venster geladen
+- **Smart File Management** - Voorkomt dat hetzelfde bestand dubbel wordt geopend
 - **Thumbnail Preview** - Bekijk miniaturen van alle pagina's
 - **Zoom & Rotatie** - Volledige controle over weergave
 
@@ -54,6 +55,9 @@ cd nvict-reader
 # Installeer dependencies
 pip install -r requirements.txt
 
+# Voor Windows print functionaliteit (vereist)
+pip install pywin32
+
 # Start de applicatie
 python NVict_Reader.py
 ```
@@ -78,6 +82,7 @@ De executable wordt aangemaakt in de `dist` folder.
 - **RAM:** Minimaal 2GB (4GB aanbevolen)
 - **Schijfruimte:** 100MB vrije ruimte
 - **Display:** Minimaal 1280x720 resolutie
+- **Dependencies:** pywin32 voor print functionaliteit (v1.7+)
 
 ## 🎯 Gebruik
 
@@ -125,13 +130,13 @@ Configuratiebestanden:
 
 Dit is een proprietary project van NVict Service. Voor vragen of suggesties, neem contact op via [www.nvict.nl](https://www.nvict.nl).
 
-## 📝 Licentie
+## 📜 Licentie
 
 Copyright © 2024 NVict Service. Alle rechten voorbehouden.
 
 Deze software is eigendom van NVict Service en mag niet worden gedistribueerd, gewijzigd of gebruikt zonder expliciete toestemming.
 
-## 🔒 Code Signing
+## 🔐 Code Signing
 
 Releases worden automatisch ondertekend via GitHub Actions met een geldig code signing certificaat voor Windows Authenticode.
 
@@ -141,9 +146,40 @@ Releases worden automatisch ondertekend via GitHub Actions met een geldig code s
 - **Support:** Via website contact formulier
 - **Updates:** Automatisch via de applicatie of [handmatig downloaden](https://www.nvict.nl/software/updates/)
 
-## 🔄 Changelog
+## 📄 Changelog
 
-### Versie 1.6 (Huidig)
+### Versie 1.7.1 (Huidig - December 2024)
+**UI Verbeteringen:**
+- ✨ Scrollbar toegevoegd aan update dialoog voor lange release notes
+- 🐛 Betere zichtbaarheid van alle update informatie
+
+### Versie 1.7 (December 2024)
+**Grote Print Update:**
+- ✨ **Direct Printen via Windows GDI** - Volledig herschreven print functionaliteit
+  - Print direct naar elke printer (USB, netwerk, virtueel)
+  - Geen tijdelijke bestanden meer nodig
+  - Universeel compatibel met alle Windows printers
+  - Intelligente error handling met concrete oplossingen
+  - Automatische standaard printer selectie
+  
+**UI Verbeteringen:**
+- 🎨 Toolbar knoppen hebben nu tekstlabels (Opslaan, Zoeken, Kopiëren, Printen, Info)
+- 🖨️ Print knop verplaatst naar logische positie na Opslaan
+- 🐛 Printer dropdown weergave gecorrigeerd
+
+**Gebruikerservaring:**
+- 🔒 **Duplicate File Detection** - Hetzelfde bestand wordt niet meer dubbel geopend
+  - Automatisch switchen naar bestaande tab
+  - Efficiënter geheugengebruik
+- 🪟 **Smart Window Management** - Programma komt automatisch naar voren bij openen bestand
+  - Ook wanneer geminimaliseerd
+  - Betere workflow
+
+**Technisch:**
+- ⚙️ Vereist `pywin32` library voor print functionaliteit
+- 🔧 Stabielere codebase met betere error handling
+
+### Versie 1.6 (November 2024)
 - Modern UI design met dark/light theme
 - Multi-tab ondersteuning
 - Single instance functionaliteit
@@ -153,6 +189,49 @@ Releases worden automatisch ondertekend via GitHub Actions met een geldig code s
 - Thumbnail preview
 - Uitgebreide afdrukopties
 - Windows registry integratie voor standaard PDF viewer
+
+## 🔄 Update Proces
+
+NVict Reader controleert automatisch op updates bij het opstarten. Wanneer een update beschikbaar is:
+
+1. Een dialoog verschijnt met volledige release notes (scrollbaar vanaf v1.7.1)
+2. Klik "Download & Installeer" voor automatische installatie
+3. Of klik "Alleen Download" om handmatig te installeren
+4. Sluit NVict Reader af voordat je installeert
+
+## ⚙️ Technische Details
+
+### Print Functionaliteit (v1.7+)
+
+NVict Reader gebruikt Windows GDI voor directe printer toegang:
+- Rendert PDF pagina's naar high-resolution images op printer DPI
+- Gebruikt native Windows print API (dezelfde als Word, Excel, Chrome)
+- Werkt met alle printer types zonder extra software
+- **Vereist:** `pywin32` library (inbegrepen in installer)
+
+### Dependencies
+
+Belangrijkste libraries:
+- `PyMuPDF` (fitz) - PDF rendering en manipulatie
+- `tkinter` - GUI framework  
+- `Pillow` (PIL) - Image processing
+- `pywin32` - Windows API toegang voor print functionaliteit
+
+Zie `requirements.txt` voor volledige lijst.
+
+## 🐛 Bekende Issues
+
+Geen bekende kritieke issues in v1.7.1.
+
+Voor bug reports of feature requests, neem contact op via de website.
+
+## 🗺️ Roadmap
+
+Geplande features voor toekomstige releases:
+- OCR tekstherkenning
+- PDF editing functionaliteit
+- Cloud storage integratie
+- Meer export opties
 
 ---
 
