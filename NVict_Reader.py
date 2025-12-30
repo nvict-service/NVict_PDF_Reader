@@ -5,7 +5,7 @@ Gebaseerd op de UI-stijl van NV Sync
 Ontwikkeld door NVict Service
 
 Website: www.nvict.nl
-Versie: 1.6
+Versie: 1.7.1
 """
 
 import sys
@@ -28,7 +28,7 @@ import socket
 import time
 
 # Applicatie versie
-APP_VERSION = "1.6"
+APP_VERSION = "1.7.1"
 UPDATE_CHECK_URL = "https://www.nvict.nl/software/updates/nvict_reader_version.json"
 
 try:
@@ -281,9 +281,15 @@ class SingleInstance:
                 if data and self.app:
                     # Open bestand in bestaande instance (in main thread)
                     self.app.root.after(0, lambda path=data: self.app.add_new_tab(path))
-                    # Breng window naar voren
-                    self.app.root.after(10, lambda: self.app.root.lift())
-                    self.app.root.after(10, lambda: self.app.root.focus_force())
+                    
+                    # Breng window naar voren (ook als geminimaliseerd)
+                    def bring_to_front():
+                        if self.app.root.state() == 'iconic':
+                            self.app.root.deiconify()
+                        self.app.root.lift()
+                        self.app.root.focus_force()
+                    
+                    self.app.root.after(10, bring_to_front)
                     
             except socket.timeout:
                 continue
@@ -640,23 +646,23 @@ class NVictReader:
         toolbar_frame.pack(side=tk.TOP, fill=tk.X, padx=20, pady=(20, 0))
         toolbar_frame.pack_propagate(False)
         
-        # Openen, Sluiten, Opslaan, Zoeken
+        # Openen, Sluiten, Opslaan, Printen
         self.open_btn = self.create_toolbar_button(toolbar_frame, " Openen", "open", 
                                                    self.open_pdf, self.theme["ACCENT_COLOR"])
         self.close_btn = self.create_toolbar_button(toolbar_frame, " Sluiten", "close", 
                                                     self.close_active_tab, self.theme["BG_SECONDARY"])
-        self.save_btn = self.create_toolbar_button(toolbar_frame, "", "save", 
+        self.save_btn = self.create_toolbar_button(toolbar_frame, " Opslaan", "save", 
                                                    self.save_form_data, self.theme["BG_SECONDARY"])
-        self.search_btn = self.create_toolbar_button(toolbar_frame, "", "search", 
-                                                     self.show_search_dialog, self.theme["BG_SECONDARY"])
+        self.print_btn = self.create_toolbar_button(toolbar_frame, " Printen", "print", 
+                                                    self.print_pdf, self.theme["BG_SECONDARY"])
         self.add_toolbar_separator(toolbar_frame)
         
-        # Kopiëren, Printen, Info, Bewerken
-        self.copy_btn = self.create_toolbar_button(toolbar_frame, "", "copy", 
+        # Zoeken, Kopiëren, Info, Bewerken
+        self.search_btn = self.create_toolbar_button(toolbar_frame, " Zoeken", "search", 
+                                                     self.show_search_dialog, self.theme["BG_SECONDARY"])
+        self.copy_btn = self.create_toolbar_button(toolbar_frame, " Kopiëren", "copy", 
                                                    self.copy_text, self.theme["BG_SECONDARY"])
-        self.print_btn = self.create_toolbar_button(toolbar_frame, "", "print", 
-                                                    self.print_pdf, self.theme["BG_SECONDARY"])
-        self.info_btn = self.create_toolbar_button(toolbar_frame, "", "info", 
+        self.info_btn = self.create_toolbar_button(toolbar_frame, " Info", "info", 
                                                    self.show_pdf_info, self.theme["BG_SECONDARY"])
         self.edit_btn = self.create_toolbar_button(toolbar_frame, " Bewerken", "toolbox", 
                                                    self.show_edit_menu, self.theme["BG_SECONDARY"])
@@ -876,6 +882,37 @@ class NVictReader:
 
     def add_new_tab(self, file_path):
         try:
+            # Normaliseer bestandspad voor vergelijking
+            file_path = os.path.abspath(file_path)
+            
+            # Check of dit bestand al open is in een bestaande tab
+            for tab_id in self.notebook.tabs():
+                tab = self.notebook.nametowidget(tab_id)
+                if isinstance(tab, PDFTab):
+                    if os.path.abspath(tab.file_path) == file_path:
+                        # Bestand is al open - switch naar die tab
+                        self.notebook.select(tab)
+                        
+                        # Breng venster naar voren als het geminimaliseerd is
+                        if self.root.state() == 'iconic':
+                            self.root.deiconify()
+                        
+                        # Breng venster naar voren
+                        self.root.lift()
+                        self.root.focus_force()
+                        
+                        # Toon melding
+                        self.status_label.config(text=f"Bestand is al geopend: {os.path.basename(file_path)}")
+                        return
+            
+            # Breng venster naar voren als het geminimaliseerd is (voor nieuwe bestanden)
+            if self.root.state() == 'iconic':
+                self.root.deiconify()
+            
+            # Breng venster naar voren
+            self.root.lift()
+            self.root.focus_force()
+            
             # Probeer eerst te openen om te controleren of wachtwoord nodig is
             test_doc = fitz.open(file_path)
             
@@ -1660,7 +1697,24 @@ class NVictReader:
                     bg=self.theme["BG_PRIMARY"], fg=self.theme["TEXT_PRIMARY"], anchor="w").pack(fill=tk.X, pady=(0, 5))
             
             printers = self.get_available_printers()
-            printer_var = tk.StringVar(value=printers[0] if printers else "Standaard printer")
+            
+            # Selecteer standaard printer als default
+            default_printer = "Standaard printer"
+            try:
+                import win32print
+                default_printer = win32print.GetDefaultPrinter()
+            except:
+                pass
+            
+            # Als standaard printer in lijst staat, gebruik die, anders eerste in lijst
+            if default_printer in printers:
+                default_value = default_printer
+            elif printers:
+                default_value = printers[0]
+            else:
+                default_value = "Standaard printer"
+            
+            printer_var = tk.StringVar(value=default_value)
             
             # Frame voor combobox met border voor betere zichtbaarheid
             combo_frame = tk.Frame(content_frame, bg=self.theme["BG_SECONDARY"], 
@@ -1668,10 +1722,10 @@ class NVictReader:
                                   highlightthickness=1)
             combo_frame.pack(fill=tk.X, pady=(0, 15))
             
-            # Combobox met goede contrast kleuren
+            # Combobox met goede contrast kleuren en expliciete afmetingen
             printer_dropdown = ttk.Combobox(combo_frame, textvariable=printer_var, 
                                            values=printers, state="readonly", 
-                                           font=("Segoe UI", 10))
+                                           font=("Segoe UI", 10), width=40, height=10)
             printer_dropdown.pack(fill=tk.X, padx=2, pady=2)
             
             # Override combobox kleuren voor beter contrast
@@ -1927,138 +1981,193 @@ class NVictReader:
             return None
 
     def execute_print(self, tab, printer, pages, copies, fit_to_page=True):
-        """Voer print opdracht uit"""
+        """Print DIRECT naar printer via Windows GDI met goede error handling"""
         try:
-            temp_path = tempfile.mktemp(suffix=".pdf")
-            output_doc = fitz.open()
+            import win32print
+            import win32ui
+            import win32con
+            from PIL import Image, ImageWin
             
-            # Kopieer geselecteerde pagina's
-            for page_num in pages:
-                output_doc.insert_pdf(tab.pdf_document, from_page=page_num, to_page=page_num)
+        except ImportError:
+            messagebox.showerror("Module Ontbreekt",
+                "De 'pywin32' module is vereist voor printen.\n\n"
+                "Installeer met: pip install pywin32\n\n"
+                "Start daarna NVict Reader opnieuw op.")
+            return
+        
+        try:
+            # Krijg printer naam
+            if printer == "Standaard printer" or not printer:
+                printer = win32print.GetDefaultPrinter()
             
-            # Als "Passend maken" is aangevinkt, schaal de pagina's
-            if fit_to_page:
-                # A4 formaat in points (595 x 842)
-                page_width = 595
-                page_height = 842
+            # Verificeer dat printer bestaat en beschikbaar is
+            try:
+                printer_info = win32print.GetPrinter(win32print.OpenPrinter(printer))
+            except:
+                messagebox.showerror("Printer Niet Gevonden",
+                    f"Kan printer '{printer}' niet vinden.\n\n"
+                    f"Mogelijke oorzaken:\n"
+                    f"• Printer is offline\n"
+                    f"• Printer is niet geïnstalleerd\n"
+                    f"• Geen toegang tot netwerkprinter\n\n"
+                    f"Check de printer in Windows Instellingen.")
+                return
+            
+            # Maak printer device context
+            try:
+                hDC = win32ui.CreateDC()
+                hDC.CreatePrinterDC(printer)
+            except Exception as e:
+                messagebox.showerror("Kan Niet Verbinden met Printer",
+                    f"Kan geen verbinding maken met printer '{printer}'.\n\n"
+                    f"Mogelijke oorzaken:\n"
+                    f"• Printer driver probleem\n"
+                    f"• Printer is in gebruik\n"
+                    f"• Onvoldoende rechten\n\n"
+                    f"Probeer de printer opnieuw te installeren of\n"
+                    f"gebruik een andere printer.")
+                return
+            
+            # Krijg printer eigenschappen
+            try:
+                printer_width = hDC.GetDeviceCaps(win32con.HORZRES)
+                printer_height = hDC.GetDeviceCaps(win32con.VERTRES)
+                printer_ppi_x = hDC.GetDeviceCaps(win32con.LOGPIXELSX)
+                printer_ppi_y = hDC.GetDeviceCaps(win32con.LOGPIXELSY)
+            except Exception as e:
+                hDC.DeleteDC()
+                messagebox.showerror("Printer Eigenschappen Fout",
+                    f"Kan printer eigenschappen niet ophalen.\n\n"
+                    f"Dit kan betekenen dat de printer driver\n"
+                    f"niet correct is geïnstalleerd.\n\n"
+                    f"Herinstalleer de printer driver.")
+                return
+            
+            # Start print job
+            try:
+                hDC.StartDoc("NVict Reader")
+            except Exception as e:
+                hDC.DeleteDC()
+                error_msg = str(e).lower()
                 
-                for page in output_doc:
-                    # Haal huidige pagina afmetingen op
-                    rect = page.rect
-                    current_width = rect.width
-                    current_height = rect.height
-                    
-                    # Bereken schaalfactor om op A4 te passen (behoud aspect ratio)
-                    scale_x = page_width / current_width
-                    scale_y = page_height / current_height
-                    scale = min(scale_x, scale_y)  # Gebruik kleinste om binnen pagina te blijven
-                    
-                    # Alleen schalen als de pagina groter is dan A4
-                    if scale < 1.0:
-                        # Maak transformatie matrix voor schalen
-                        mat = fitz.Matrix(scale, scale)
-                        
-                        # Bereken nieuwe afmetingen
-                        new_width = current_width * scale
-                        new_height = current_height * scale
-                        
-                        # Centreer op A4 pagina
-                        offset_x = (page_width - new_width) / 2
-                        offset_y = (page_height - new_height) / 2
-                        
-                        # Set nieuwe pagina grootte
-                        page.set_mediabox(fitz.Rect(0, 0, page_width, page_height))
-                        
-                        # Haal alle content op en schaal
-                        page.apply_redactions()
+                if "access" in error_msg or "denied" in error_msg:
+                    messagebox.showerror("Geen Toegang",
+                        f"Geen toegang tot printer '{printer}'.\n\n"
+                        f"Mogelijke oorzaken:\n"
+                        f"• Onvoldoende gebruikersrechten\n"
+                        f"• Printer is vergrendeld door admin\n"
+                        f"• Printer is in gebruik door ander programma\n\n"
+                        f"Neem contact op met uw systeembeheerder.")
+                elif "offline" in error_msg or "not ready" in error_msg:
+                    messagebox.showerror("Printer Offline",
+                        f"Printer '{printer}' is offline of niet gereed.\n\n"
+                        f"Controleer:\n"
+                        f"• Is de printer aangezet?\n"
+                        f"• Is de printer verbonden (USB/netwerk)?\n"
+                        f"• Heeft de printer papier/toner?\n"
+                        f"• Zijn er error lampjes op de printer?")
+                else:
+                    messagebox.showerror("Kan Print Job Niet Starten",
+                        f"Kan print job niet starten.\n\n"
+                        f"Printer: {printer}\n"
+                        f"Fout: {str(e)}\n\n"
+                        f"Probeer:\n"
+                        f"• Check of printer werkt in andere programma's\n"
+                        f"• Herstart de printer\n"
+                        f"• Check Windows printer wachtrij")
+                return
             
-            output_doc.save(temp_path)
-            output_doc.close()
-            
-            # Print het bestand met verschillende methodes
-            success = False
-            error_msg = ""
+            print_success = False
             
             try:
-                # Methode 1: Probeer via os.startfile (standaard Windows methode)
-                for _ in range(copies):
-                    os.startfile(temp_path, "print")
-                success = True
-                
-            except Exception as e:
-                error_msg = str(e)
-                
-                # Methode 2: Probeer via shell execute
-                try:
-                    import win32api
-                    import win32print
-                    
-                    # Krijg standaard printer als geen printer gespecificeerd
-                    if printer == "Standaard printer":
-                        printer = win32print.GetDefaultPrinter()
-                    
-                    for _ in range(copies):
-                        win32api.ShellExecute(
-                            0,
-                            "print",
-                            temp_path,
-                            f'/d:"{printer}"',
-                            ".",
-                            0
-                        )
-                    success = True
-                    
-                except Exception as e2:
-                    error_msg = f"{error_msg}\n{str(e2)}"
-                    
-                    # Methode 3: Probeer via Adobe Reader of andere PDF reader
-                    try:
-                        # Zoek naar geïnstalleerde PDF readers
-                        pdf_readers = []
-                        
-                        # Adobe Acrobat Reader
-                        acrobat_paths = [
-                            r"C:\Program Files\Adobe\Acrobat DC\Acrobat\Acrobat.exe",
-                            r"C:\Program Files (x86)\Adobe\Acrobat Reader DC\Reader\AcroRd32.exe",
-                            r"C:\Program Files\Adobe\Acrobat Reader DC\Reader\AcroRd32.exe",
-                        ]
-                        
-                        # SumatraPDF
-                        sumatra_paths = [
-                            r"C:\Program Files\SumatraPDF\SumatraPDF.exe",
-                            r"C:\Program Files (x86)\SumatraPDF\SumatraPDF.exe",
-                        ]
-                        
-                        # Foxit Reader
-                        foxit_paths = [
-                            r"C:\Program Files\Foxit Software\Foxit Reader\FoxitReader.exe",
-                            r"C:\Program Files (x86)\Foxit Software\Foxit Reader\FoxitReader.exe",
-                        ]
-                        
-                        reader_path = None
-                        for path in acrobat_paths + sumatra_paths + foxit_paths:
-                            if os.path.exists(path):
-                                reader_path = path
-                                break
-                        
-                        if reader_path:
-                            # Print via gevonden PDF reader
-                            for _ in range(copies):
-                                subprocess.run([reader_path, "/t", temp_path, printer], 
-                                             creationflags=subprocess.CREATE_NO_WINDOW)
-                            success = True
-                        else:
-                            # Geen PDF reader gevonden, open het bestand gewoon
-                            os.startfile(temp_path)
-                            success = True
+                # Print alle kopieën
+                for copy_num in range(copies):
+                    # Print elke geselecteerde pagina
+                    for page_num in pages:
+                        try:
+                            # Start nieuwe pagina
+                            hDC.StartPage()
                             
-                    except Exception as e3:
-                        error_msg = f"{error_msg}\n{str(e3)}"
-            
-            if success:
-                fit_text = " (passend gemaakt)" if fit_to_page else ""
+                            # Haal PDF pagina op
+                            page = tab.pdf_document[page_num]
+                            
+                            # Render pagina naar hoge resolutie image
+                            dpi_scale = max(printer_ppi_x, printer_ppi_y) / 72
+                            zoom = min(dpi_scale, 4.0)
+                            mat = fitz.Matrix(zoom, zoom)
+                            pix = page.get_pixmap(matrix=mat, alpha=False)
+                            
+                            # Converteer naar PIL Image
+                            img_data = pix.tobytes("ppm")
+                            img = Image.open(io.BytesIO(img_data))
+                            
+                            # Bereken afmetingen voor printer
+                            img_width, img_height = img.size
+                            aspect_ratio = img_width / img_height
+                            
+                            if fit_to_page:
+                                printer_aspect = printer_width / printer_height
+                                
+                                if aspect_ratio > printer_aspect:
+                                    print_width = printer_width
+                                    print_height = int(printer_width / aspect_ratio)
+                                else:
+                                    print_height = printer_height
+                                    print_width = int(printer_height * aspect_ratio)
+                            else:
+                                print_width = int(img_width * 72 / printer_ppi_x * printer_width / printer_width)
+                                print_height = int(img_height * 72 / printer_ppi_y * printer_height / printer_height)
+                                
+                                if print_width > printer_width or print_height > printer_height:
+                                    scale = min(printer_width / print_width, printer_height / print_height)
+                                    print_width = int(print_width * scale)
+                                    print_height = int(print_height * scale)
+                            
+                            # Centreer op pagina
+                            x = (printer_width - print_width) // 2
+                            y = (printer_height - print_height) // 2
+                            
+                            # Print image naar printer DC
+                            dib = ImageWin.Dib(img)
+                            dib.draw(hDC.GetHandleOutput(), (x, y, x + print_width, y + print_height))
+                            
+                            # Einde pagina
+                            hDC.EndPage()
+                            
+                        except Exception as page_error:
+                            print(f"Fout bij printen pagina {page_num + 1}: {page_error}")
+                            # Probeer door te gaan met volgende pagina
+                            try:
+                                hDC.EndPage()
+                            except:
+                                pass
                 
-                # Maak leesbare pagina lijst
+                # Einde document - als we hier komen is alles geslaagd
+                hDC.EndDoc()
+                print_success = True
+                
+            except Exception as print_error:
+                # Print proces gefaald
+                try:
+                    hDC.AbortDoc()
+                except:
+                    pass
+                
+                messagebox.showerror("Print Fout",
+                    f"Fout tijdens het printen:\n{str(print_error)}\n\n"
+                    f"De print job is geannuleerd.\n\n"
+                    f"Probeer opnieuw of gebruik een andere printer.")
+                
+            finally:
+                # Sluit printer DC
+                try:
+                    hDC.DeleteDC()
+                except:
+                    pass
+            
+            # Alleen success message tonen als echt gelukt
+            if print_success:
+                # Maak leesbare pagina info
                 if len(pages) == 1:
                     page_info = f"Pagina {pages[0] + 1}"
                 elif len(pages) <= 5:
@@ -2066,30 +2175,18 @@ class NVictReader:
                 else:
                     page_info = f"{len(pages)} pagina's"
                 
-                self.status_label.config(text=f"{len(pages)} pagina(s) naar printer gestuurd{fit_text}")
-                messagebox.showinfo("Afdrukken", 
-                    f"Document wordt afgedrukt:\n\n" +
-                    f"Printer: {printer}\n" +
-                    f"{page_info}\n" +
-                    f"Kopieën: {copies}\n" +
-                    f"Passend maken: {'Ja' if fit_to_page else 'Nee'}")
-            else:
-                # Toon duidelijke foutmelding met oplossing
-                messagebox.showerror("Print Fout", 
-                    "Kan niet automatisch printen.\n\n"
-                    "Mogelijke oorzaken:\n"
-                    "• Geen PDF reader geïnstalleerd of gekoppeld aan .pdf bestanden\n"
-                    "• Geen printer geïnstalleerd\n\n"
-                    "Oplossing:\n"
-                    "1. Installeer Adobe Reader of een andere PDF reader\n"
-                    "2. Stel deze in als standaard applicatie voor PDF bestanden\n"
-                    "3. Of exporteer de pagina's en print deze handmatig\n\n"
-                    f"Tijdelijk bestand opgeslagen op:\n{temp_path}")
-            
-            self.root.after(10000, lambda: self.cleanup_temp_file(temp_path))
+                self.status_label.config(text=f"Print job verzonden naar {printer}")
+                
+                # GEEN messagebox - alleen status update
+                # Gebruiker ziet zelf of het werkt
                 
         except Exception as e:
-            messagebox.showerror("Print Fout", f"Kan niet printen:\n{str(e)}")
+            import traceback
+            traceback.print_exc()
+            messagebox.showerror("Onverwachte Fout",
+                f"Er is een onverwachte fout opgetreden:\n{str(e)}\n\n"
+                f"Controleer of pywin32 correct is geïnstalleerd:\n"
+                f"pip install pywin32")
 
     def cleanup_temp_file(self, filepath):
         """Verwijder tijdelijk bestand"""
@@ -3093,14 +3190,22 @@ class NVictReader:
             notes_frame = tk.Frame(content_frame, bg=self.theme["BG_SECONDARY"])
             notes_frame.pack(fill=tk.BOTH, expand=True)
             
+            # Scrollbar toevoegen
+            scrollbar = tk.Scrollbar(notes_frame, bg=self.theme["BG_SECONDARY"])
+            scrollbar.pack(side=tk.RIGHT, fill=tk.Y, padx=(0, 2), pady=10)
+            
             notes_text = tk.Text(notes_frame, wrap=tk.WORD, 
                                font=("Segoe UI", 9),
                                bg=self.theme["BG_SECONDARY"],
                                fg=self.theme["TEXT_PRIMARY"],
-                               relief="flat", height=8)
-            notes_text.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+                               relief="flat", height=8,
+                               yscrollcommand=scrollbar.set)
+            notes_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10, pady=10)
             notes_text.insert("1.0", release_notes)
             notes_text.config(state=tk.DISABLED)
+            
+            # Koppel scrollbar aan text widget
+            scrollbar.config(command=notes_text.yview)
         
         # Installatie instructie
         install_frame = tk.Frame(content_frame, bg=self.theme["BG_PRIMARY"])
