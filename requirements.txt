@@ -1,5 +1,5 @@
 # NVict Reader - Python Dependencies
-# Versie: 1.6
+# Versie: 1.7.1
 
 # PDF Processing
 PyMuPDF==1.23.26
@@ -9,12 +9,17 @@ PyMuPDF==1.23.26
 Pillow==10.1.0
 # Voor image manipulatie, thumbnails en icon weergave
 
+# Windows API Access (VEREIST vanaf v1.7)
+pywin32==306
+# Voor Windows GDI print functionaliteit
+# Direct printen naar elke printer (USB, netwerk, virtueel)
+
 # GUI Framework
 # tkinter is standaard bij Python, geen aparte installatie nodig
 
 # Windows Registry Access
 # winreg is standaard bij Python op Windows, geen aparte installatie nodig
 
-# Optioneel: Voor het bouwen van executables
-# PyInstaller==6.3.0
-# Uncomment deze regel als je een executable wilt maken
+# Voor het bouwen van executables
+PyInstaller==6.3.0
+# Voor het maken van standalone .exe bestand
