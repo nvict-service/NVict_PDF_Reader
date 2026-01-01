@@ -132,7 +132,7 @@ Dit is een proprietary project van NVict Service. Voor vragen of suggesties, nee
 
 ## 📜 Licentie
 
-Copyright © 2024 NVict Service. Alle rechten voorbehouden.
+Copyright © 2026 NVict Service. Alle rechten voorbehouden.
 
 Deze software is eigendom van NVict Service en mag niet worden gedistribueerd, gewijzigd of gebruikt zonder expliciete toestemming.
 
@@ -148,12 +148,12 @@ Releases worden automatisch ondertekend via GitHub Actions met een geldig code s
 
 ## 📄 Changelog
 
-### Versie 1.7.1 (Huidig - December 2024)
+### Versie 1.7.1 (Huidig - December 2025)
 **UI Verbeteringen:**
 - ✨ Scrollbar toegevoegd aan update dialoog voor lange release notes
 - 🐛 Betere zichtbaarheid van alle update informatie
 
-### Versie 1.7 (December 2024)
+### Versie 1.7 (December 2025)
 **Grote Print Update:**
 - ✨ **Direct Printen via Windows GDI** - Volledig herschreven print functionaliteit
   - Print direct naar elke printer (USB, netwerk, virtueel)
@@ -179,7 +179,7 @@ Releases worden automatisch ondertekend via GitHub Actions met een geldig code s
 - ⚙️ Vereist `pywin32` library voor print functionaliteit
 - 🔧 Stabielere codebase met betere error handling
 
-### Versie 1.6 (November 2024)
+### Versie 1.6 (November 2025)
 - Modern UI design met dark/light theme
 - Multi-tab ondersteuning
 - Single instance functionaliteit
@@ -224,14 +224,6 @@ Zie `requirements.txt` voor volledige lijst.
 Geen bekende kritieke issues in v1.7.1.
 
 Voor bug reports of feature requests, neem contact op via de website.
-
-## 🗺️ Roadmap
-
-Geplande features voor toekomstige releases:
-- OCR tekstherkenning
-- PDF editing functionaliteit
-- Cloud storage integratie
-- Meer export opties
 
 ---
 
